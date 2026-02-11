@@ -1,0 +1,16 @@
+services:
+  marp:
+    image: marpteam/marp-cli:latest
+    volumes:
+      - ./slides:/home/marp/app
+    ports:
+      - "8081:8080"
+    command: --server --html .
+
+  vite:
+    build: ./examples
+    volumes:
+      - ./examples:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"

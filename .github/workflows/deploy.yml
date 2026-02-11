@@ -1,0 +1,85 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Marp スライドビルド
+      - name: Build slides with Marp
+        uses: docker://marpteam/marp-cli:latest
+        with:
+          args: --html --output ./_site/slides/index.html -- slides/slide.md
+
+      # Vite アプリビルド
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: examples/package-lock.json
+
+      - name: Install dependencies
+        working-directory: examples
+        run: npm ci
+
+      - name: Build Vite app
+        working-directory: examples
+        env:
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/examples/
+        run: npm run build
+
+      - name: Copy Vite build
+        run: cp -r examples/dist _site/examples
+
+      # ルート index.html 作成
+      - name: Create root index.html
+        run: |
+          cat > _site/index.html << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html lang="ja">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>React勉強会：関数コンポーネントの動作順序を極める</title>
+            <style>
+              body { font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 60px auto; padding: 0 20px; color: #333; line-height: 1.6; }
+              h1 { color: #61dafb; }
+              a { display: block; margin: 16px 0; padding: 16px 20px; background: #fff; border-radius: 8px; text-decoration: none; color: #1976d2; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+              a:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+            </style>
+          </head>
+          <body>
+            <h1>React勉強会</h1>
+            <p>関数コンポーネントの「動作順序」を極める</p>
+            <a href="./slides/">📄 スライドを見る</a>
+            <a href="./examples/">💻 サンプルコードを動かす</a>
+          </body>
+          </html>
+          HTMLEOF
+
+      - uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
