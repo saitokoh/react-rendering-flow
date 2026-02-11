@@ -20,21 +20,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Marp スライドビルド
-      - name: Prepare output directory
-        run: mkdir -p _site/slides
-
-      - name: Build slides with Marp
-        uses: docker://marpteam/marp-cli:latest
-        with:
-          args: --html --output ./_site/slides/index.html -- slides/slide.md
-
-      # Vite アプリビルド
+      # Node.js セットアップ
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: examples/package-lock.json
+
+      # Marp スライドビルド（npx で実行し Docker 権限問題を回避）
+      - name: Build slides with Marp
+        run: |
+          mkdir -p _site/slides
+          npx --yes @marp-team/marp-cli --html --output ./_site/slides/index.html -- slides/slide.md
 
       - name: Install dependencies
         working-directory: examples
